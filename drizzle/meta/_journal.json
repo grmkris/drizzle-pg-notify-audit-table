@@ -1,0 +1,20 @@
+{
+  "version": "5",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1705015178183,
+      "tag": "0000_tiresome_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1705015187757,
+      "tag": "0001_nosy_mockingbird",
+      "breakpoints": true
+    }
+  ]
+}
