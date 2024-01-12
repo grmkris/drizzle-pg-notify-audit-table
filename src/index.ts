@@ -7,7 +7,7 @@ import {
 } from "./db/schema.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { and, desc, eq, gte } from "drizzle-orm";
+import { and, desc, eq, gte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 migrate(drizzle(migrationClient), {
@@ -17,7 +17,14 @@ migrate(drizzle(migrationClient), {
   console.log("Generating some data");
   await generateSomeData();
   console.log("Generated some data");
+  console.log("Read from audit table");
   await readFromAuditTable();
+  console.log("Done Read from audit table");
+  console.log("Read from audit table - queryAuditRecordOverTime");
+  await queryAuditRecordOverTime({
+    tableName: "invoices",
+    recordId: "3",
+  });
 });
 
 const generateSomeData = async () => {
@@ -145,9 +152,67 @@ const queryAuditTableInTimeRange = async () => {
         break;
     }
   }
+
+
+
 };
 
+const calculateRecordId = (tableName: string, record: any) => {};
+
+export const TABLE_OID_MAP = {
+  invoices: 16590,
+  products: 16598,
+} as const;
 /**
  * Changes to a Record Over Time
  */
-export const queryAuditRecordOverTime = async () => {};
+export const queryAuditRecordOverTime = async (props: {
+  tableName: "invoices" | "products";
+  recordId: string;
+}) => {
+
+  console.log("queryAuditRecordOverTime props", props);
+  const sqlstmt = sql`SELECT audit.to_record_id(${
+    TABLE_OID_MAP[props.tableName].toString()
+  }, array['id'], jsonb_build_object('id', '3'))`;
+
+  console.log("sqlstmt", sqlstmt);
+
+  const record = await db.execute(sqlstmt);
+  const recordID = record[0].to_record_id;
+
+  if (!recordID) throw new Error("No record ID found");
+
+
+  /**
+   * SELECT *
+   * FROM audit.record_version
+   * WHERE record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f'
+   *    OR old_record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f';
+   */
+  const results = await db.query.RecordVersionTable.findMany({
+    where: (record) => {
+      return or(
+        eq(record.recordId, recordID),
+        eq(record.oldRecordId, recordID),
+      );
+    },
+  });
+
+  const records = z.array(RecordVersion).parse(results);
+  console.log("queryAuditRecordOverTime found records", records.length);
+
+  for (const record of records) {
+    switch (record.tableName) {
+      case "invoices":
+        console.log("invoice", record);
+        break;
+      case "customers":
+        console.log("customer", record);
+        break;
+      case "products":
+        console.log("product", record);
+        break;
+    }
+  }
+};
