@@ -10,9 +10,9 @@
     "db:generate": "drizzle-kit generate:pg",
     "start": "bun run src/index.ts",
     "db:docker:up": "docker-compose -f postgres/postgres.yml up -d",
-    "db:docker:down": "docker-compose -f postgres/postgres.yml down",
-    "db:docker:logs": "docker-compose -f postgres/postgres.yml logs -t -f",
-    "db:docker:remove": "docker-compose -f postgres/postgres.yml rm -f"
+    "db:docker:stop": "docker-compose -f postgres/postgres.yml stop",
+    "db:docker:remove": "docker-compose -f postgres/postgres.yml rm -f",
+    "db:docker:logs": "docker-compose -f postgres/postgres.yml logs -t -f"
   },
   "devDependencies": {
     "bun-types": "latest",

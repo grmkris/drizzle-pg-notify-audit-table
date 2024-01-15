@@ -103,22 +103,24 @@ const generateSomeData = async () => {
 
 async function readFromAuditTable() {
   // read from audit table
+  // limit output to just 5 records to keep the output small
   const auditRecords = await db.query.RecordVersionTable.findMany({
     where: (record) => eq(record.tableName, "invoices"),
+    limit: 5,
   });
 
   const records = z.array(RecordVersion).parse(auditRecords);
-
+  console.log("readFromAuditTable found records", records.length);
   for (const record of records) {
     switch (record.tableName) {
       case "invoices":
-        console.log("invoice", record);
+        console.log("readFromAuditTable invoice", record);
         break;
       case "customers":
-        console.log("customer", record);
+        console.log("readFromAuditTable customer", record);
         break;
       case "products":
-        console.log("product", record);
+        console.log("readFromAuditTable product", record);
         break;
     }
   }
@@ -163,6 +165,8 @@ export const TABLE_OID_MAP = {
   invoices: 16590,
   products: 16598,
 } as const;
+
+
 /**
  * Changes to a Record Over Time
  */
@@ -172,14 +176,18 @@ export const queryAuditRecordOverTime = async (props: {
 }) => {
 
   console.log("queryAuditRecordOverTime props", props);
+  /**
+   * We need to calculate the record ID for the record we want to query, we could do this in js, but here we query helper function in the sql table
+   * In production, we would probably want to do this in js
+   */
   const sqlstmt = sql`SELECT audit.to_record_id(${
     TABLE_OID_MAP[props.tableName].toString()
   }, array['id'], jsonb_build_object('id', '3'))`;
 
-  console.log("sqlstmt", sqlstmt);
-
   const record = await db.execute(sqlstmt);
   const recordID = record[0].to_record_id;
+
+  console.log("queryAuditRecordOverTime recordID", recordID);
 
   if (!recordID) throw new Error("No record ID found");
 
