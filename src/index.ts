@@ -7,8 +7,21 @@ import {
 } from "./db/schema.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { and, desc, eq, gte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
+
+/**
+ * We need to map the table name to the table OID in postgres, it is different for each database
+ * We should somehow automate this to not have it hardcoded in real app
+ */
+export const TABLE_OID_MAP = {
+  invoices: 16418,
+  products: 16426,
+} as const;
+/**
+ * Record ID you want to use for historical data
+ */
+export const RECORD_ID = '100' as const;
 
 migrate(drizzle(migrationClient), {
   migrationsFolder: "./drizzle",
@@ -23,7 +36,7 @@ migrate(drizzle(migrationClient), {
   console.log("Read from audit table - queryAuditRecordOverTime");
   await queryAuditRecordOverTime({
     tableName: "invoices",
-    recordId: "3",
+    recordId: RECORD_ID,
   });
 });
 
@@ -94,7 +107,7 @@ const generateSomeData = async () => {
       .set({
         prodId: i,
         custId: i,
-        quantity: i,
+        quantity: Math.floor(Math.random() * 100),
       })
       .where(eq(InvoicesTable.invId, i))
       .execute();
@@ -159,14 +172,6 @@ const queryAuditTableInTimeRange = async () => {
 
 };
 
-const calculateRecordId = (tableName: string, record: any) => {};
-
-export const TABLE_OID_MAP = {
-  invoices: 16590,
-  products: 16598,
-} as const;
-
-
 /**
  * Changes to a Record Over Time
  */
@@ -182,10 +187,10 @@ export const queryAuditRecordOverTime = async (props: {
    */
   const sqlstmt = sql`SELECT audit.to_record_id(${
     TABLE_OID_MAP[props.tableName].toString()
-  }, array['id'], jsonb_build_object('id', '3'))`;
+  }, array['id'], jsonb_build_object('id', '100'))`;
 
   const record = await db.execute(sqlstmt);
-  const recordID = record[0].to_record_id;
+  const recordID = z.string().parse(record[0].to_record_id)
 
   console.log("queryAuditRecordOverTime recordID", recordID);
 
@@ -199,12 +204,7 @@ export const queryAuditRecordOverTime = async (props: {
    *    OR old_record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f';
    */
   const results = await db.query.RecordVersionTable.findMany({
-    where: (record) => {
-      return or(
-        eq(record.recordId, recordID),
-        eq(record.oldRecordId, recordID),
-      );
-    },
+    where: (record, { eq }) => eq(record.recordId, recordID) || eq(record.oldRecordId, recordID),
   });
 
   const records = z.array(RecordVersion).parse(results);
