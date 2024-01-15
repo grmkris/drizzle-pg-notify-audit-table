@@ -15,6 +15,13 @@
       "when": 1705015187757,
       "tag": "0001_nosy_mockingbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1705325292476,
+      "tag": "0002_fast_madame_masque",
+      "breakpoints": true
     }
   ]
 }
