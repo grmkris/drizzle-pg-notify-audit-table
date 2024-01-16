@@ -1,59 +1,66 @@
 import {
   integer,
   jsonb,
-  numeric,
   pgSchema,
   pgTable,
   serial,
   text,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
-export const ProductsTable = pgTable("products", {
-  prodId: serial("prodId").primaryKey(),
-  prodName: text("prodName").notNull(),
-  price: numeric("price").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export const Product = createSelectSchema(ProductsTable, {
-  createdAt: z.coerce.date(),
-});
-export const NewProduct = createInsertSchema(ProductsTable);
-export type Product = z.infer<typeof Product>;
-export type NewProduct = z.infer<typeof NewProduct>;
-
-export const CustomersTable = pgTable("customers", {
-  custId: serial("custId").primaryKey(),
+export const UsersTable = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
   firstname: text("firstname").notNull(),
   lastname: text("lastname").notNull(),
   email: text("email").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const Customer = createSelectSchema(CustomersTable, {
+export const User = createSelectSchema(UsersTable, {
   createdAt: z.coerce.date(),
 });
-export const NewCustomer = createInsertSchema(CustomersTable);
-export type Customer = z.infer<typeof Customer>;
-export type NewCustomer = z.infer<typeof NewCustomer>;
+export const NewUser = createInsertSchema(UsersTable);
+export type User = z.infer<typeof User>;
+export type NewUser = z.infer<typeof NewUser>;
 
-export const InvoicesTable = pgTable("invoices", {
-  invId: serial("invId").primaryKey(),
-  custId: integer("custId").notNull(),
-  prodId: integer("prodId").notNull(),
-  quantity: integer("quantity").notNull(),
+export const PostsTable = pgTable("posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postName: text("post_name").notNull(),
+  postTitle: text("post_title").notNull(),
+  postContent: text("post_content").notNull(),
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => UsersTable.id)
+    .notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const Invoice = createSelectSchema(InvoicesTable, {
+export const Post = createSelectSchema(PostsTable, {
   createdAt: z.coerce.date(),
 });
-export const NewInvoice = createInsertSchema(InvoicesTable);
-export type Invoice = z.infer<typeof Invoice>;
-export type NewInvoice = z.infer<typeof NewInvoice>;
+export const NewPost = createInsertSchema(PostsTable);
+export type Post = z.infer<typeof Post>;
+export type NewPost = z.infer<typeof NewPost>;
+
+export const CommentsTable = pgTable("comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  comment: text("comment").notNull(),
+  createdBy: text("created_by")
+    .notNull()
+    .references(() => UsersTable.id)
+    .notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const Comment = createSelectSchema(CommentsTable, {
+  createdAt: z.coerce.date(),
+});
+export const NewComment = createInsertSchema(CommentsTable);
+export type Comment = z.infer<typeof Comment>;
+export type NewComment = z.infer<typeof NewComment>;
 
 /** create table audit.record_version(
  id             bigserial primary key,
@@ -86,7 +93,7 @@ export const OPERATIONS = ["INSERT", "UPDATE", "DELETE", "TRUNCATE"] as const;
 export const OP = z.enum(["INSERT", "UPDATE", "DELETE", "TRUNCATE"]);
 export type OP = z.infer<typeof OP>;
 
-export const AUDITED_TABLES = ["products", "customers", "invoices"] as const;
+export const AUDITED_TABLES = ["users", "posts", "comments"] as const;
 export const AUDITED_TABLE = z.enum(AUDITED_TABLES);
 export type AUDITED_TABLE = z.infer<typeof AUDITED_TABLE>;
 
@@ -110,8 +117,8 @@ export const RecordVersion = createSelectSchema(RecordVersionTable, {
   ts: z.coerce.date(),
   op: OP,
   tableName: AUDITED_TABLE,
-  record: z.union([Product, Customer, Invoice]),
-  oldRecord: z.union([Product, Customer, Invoice]).optional(),
+  record: z.union([User, Post, Comment]).optional(),
+  oldRecord: z.union([User, Post, Comment]).optional(),
 });
 
 export type RecordVersion = z.infer<typeof RecordVersion>;

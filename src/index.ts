@@ -1,9 +1,9 @@
 import { db, migrationClient } from "./db/db.ts";
 import {
-  CustomersTable,
-  InvoicesTable,
-  ProductsTable,
+  UsersTable,
+  PostsTable,
   RecordVersion,
+  CommentsTable,
 } from "./db/schema.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -21,7 +21,7 @@ export const TABLE_OID_MAP = {
 /**
  * Record ID you want to use for historical data
  */
-export const RECORD_ID = '100' as const;
+export const RECORD_ID = "100" as const;
 
 migrate(drizzle(migrationClient), {
   migrationsFolder: "./drizzle",
@@ -41,75 +41,71 @@ migrate(drizzle(migrationClient), {
 });
 
 const generateSomeData = async () => {
-  const latestCustomer = await db.query.CustomersTable.findFirst({
-    orderBy: (posts, { asc }) => [desc(posts.custId)],
-  });
-  // create 10 customers
-  for (
-    let i = (latestCustomer?.custId ?? 0) + 1;
-    i < (latestCustomer?.custId ?? 0) + 10 + 1;
-    i++
-  ) {
-    await db
-      .insert(CustomersTable)
+  // create 10 users
+  const createdUsers = [];
+  const createdPosts = [];
+  const createdComments = [];
+  for (let i = 0; i < 10; i++) {
+    const a = await db
+      .insert(UsersTable)
       .values({
-        custId: i,
         email: `email${1}@emai.com`,
         lastname: `lastname${i}`,
         firstname: `firstname${i}`,
       })
+      .returning()
       .execute();
+    createdUsers.push(a[0]);
   }
-
-  // create 10 products
-  const latestProduct = await db.query.ProductsTable.findFirst({
-    orderBy: (posts, { asc }) => [desc(posts.prodId)],
-  });
-  for (
-    let i = (latestProduct?.prodId ?? 0) + 1;
-    i < (latestProduct?.prodId ?? 0) + 10 + 1;
-    i++
-  ) {
-    await db
-      .insert(ProductsTable)
+  for (let i = 0; i < 10; i++) {
+    const a = await db
+      .insert(PostsTable)
       .values({
-        prodName: `prodName${i}`,
-        price: "100",
-        createdAt: new Date(),
-        prodId: i,
+        postName: `postName${i}`,
+        postTitle: `postTitle${i}`,
+        postContent: `postContent${i}`,
+        createdBy: createdUsers[i].id,
       })
+      .returning()
       .execute();
+
+    createdPosts.push(a[0]);
   }
 
-  // create 10 invoices
-  const latestInvoice = await db.query.InvoicesTable.findFirst({
-    orderBy: (posts, { asc }) => [desc(posts.invId)],
-  });
-  for (
-    let i = (latestInvoice?.invId ?? 0) + 1;
-    i < (latestInvoice?.invId ?? 0) + 10 + 1;
-    i++
-  ) {
-    await db
-      .insert(InvoicesTable)
+  // create 10 comments
+  for (let i = 0; i < 10; i++) {
+    const a = await db
+      .insert(CommentsTable)
       .values({
-        prodId: i,
-        custId: i,
-        quantity: i,
+        createdBy: createdUsers[i].id,
+        comment: `comment${i}`,
       })
+      .returning()
       .execute();
+
+    createdComments.push(a[0]);
   }
 
-  // randomly update some invoices
+  // update each comments and post few times
   for (let i = 0; i < 10; i++) {
     await db
-      .update(InvoicesTable)
+      .update(CommentsTable)
       .set({
-        prodId: i,
-        custId: i,
-        quantity: Math.floor(Math.random() * 100),
+        comment: `updated comment${i}`,
       })
-      .where(eq(InvoicesTable.invId, i))
+      .where(eq(CommentsTable.id, createdComments[i].id))
+      .execute();
+  }
+
+  for (let i = 0; i < 10; i++) {
+    await db
+      .update(PostsTable)
+      .set({
+        postName: `updated  postName${i}`,
+        postTitle: `updated  postTitle${i}`,
+        postContent: `updated  postContent${i}`,
+      })
+      .where(eq(PostsTable.id, createdPosts[i].id))
       .execute();
   }
 };
@@ -118,24 +114,14 @@ async function readFromAuditTable() {
   // read from audit table
   // limit output to just 5 records to keep the output small
   const auditRecords = await db.query.RecordVersionTable.findMany({
-    where: (record) => eq(record.tableName, "invoices"),
+    where: (record) => eq(record.tableName, "posts"),
     limit: 5,
   });
 
   const records = z.array(RecordVersion).parse(auditRecords);
   console.log("readFromAuditTable found records", records.length);
   for (const record of records) {
-    switch (record.tableName) {
-      case "invoices":
-        console.log("readFromAuditTable invoice", record);
-        break;
-      case "customers":
-        console.log("readFromAuditTable customer", record);
-        break;
-      case "products":
-        console.log("readFromAuditTable product", record);
-        break;
-    }
+    console.log(`readFromAuditTable ${record.tableName} record`, record.id);
   }
 }
 
@@ -146,7 +132,7 @@ const queryAuditTableInTimeRange = async () => {
   const results = await db.query.RecordVersionTable.findMany({
     where: (record) => {
       return and(
-        eq(record.tableName, "invoices"),
+        eq(record.tableName, "posts"),
         gte(record.ts, new Date("2021-01-01")),
       );
     },
@@ -155,21 +141,11 @@ const queryAuditTableInTimeRange = async () => {
   const records = z.array(RecordVersion).parse(results);
 
   for (const record of records) {
-    switch (record.tableName) {
-      case "invoices":
-        console.log("invoice", record);
-        break;
-      case "customers":
-        console.log("customer", record);
-        break;
-      case "products":
-        console.log("product", record);
-        break;
-    }
+    console.log(
+      `queryAuditTableInTimeRange ${record.tableName} record`,
+      record.id,
+    );
   }
-
-
-
 };
 
 /**
@@ -179,23 +155,21 @@ export const queryAuditRecordOverTime = async (props: {
   tableName: "invoices" | "products";
   recordId: string;
 }) => {
-
   console.log("queryAuditRecordOverTime props", props);
   /**
    * We need to calculate the record ID for the record we want to query, we could do this in js, but here we query helper function in the sql table
    * In production, we would probably want to do this in js
    */
-  const sqlstmt = sql`SELECT audit.to_record_id(${
-    TABLE_OID_MAP[props.tableName].toString()
-  }, array['id'], jsonb_build_object('id', '100'))`;
+  const sqlstmt = sql`SELECT audit.to_record_id(${TABLE_OID_MAP[
+    props.tableName
+  ].toString()}, array['id'], jsonb_build_object('id', '100'))`;
 
   const record = await db.execute(sqlstmt);
-  const recordID = z.string().parse(record[0].to_record_id)
+  const recordID = z.string().parse(record[0].to_record_id);
 
   console.log("queryAuditRecordOverTime recordID", recordID);
 
   if (!recordID) throw new Error("No record ID found");
-
 
   /**
    * SELECT *
@@ -204,23 +178,17 @@ export const queryAuditRecordOverTime = async (props: {
    *    OR old_record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f';
    */
   const results = await db.query.RecordVersionTable.findMany({
-    where: (record, { eq }) => eq(record.recordId, recordID) || eq(record.oldRecordId, recordID),
+    where: (record, { eq }) =>
+      eq(record.recordId, recordID) || eq(record.oldRecordId, recordID),
   });
 
   const records = z.array(RecordVersion).parse(results);
   console.log("queryAuditRecordOverTime found records", records.length);
 
   for (const record of records) {
-    switch (record.tableName) {
-      case "invoices":
-        console.log("invoice", record);
-        break;
-      case "customers":
-        console.log("customer", record);
-        break;
-      case "products":
-        console.log("product", record);
-        break;
-    }
+    console.log(
+      `queryAuditRecordOverTime ${record.tableName} record`,
+      record.id,
+    );
   }
 };
