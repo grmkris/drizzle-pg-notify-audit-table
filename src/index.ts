@@ -4,11 +4,15 @@ import {
   PostsTable,
   RecordVersion,
   CommentsTable,
+  NewUser,
+  NewPost,
+  NewComment,
 } from "./db/schema.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { generateMock } from "@anatine/zod-mock";
 
 /**
  * We need to map the table name to the table OID in postgres, it is different for each database
@@ -48,11 +52,7 @@ const generateSomeData = async () => {
   for (let i = 0; i < 10; i++) {
     const a = await db
       .insert(UsersTable)
-      .values({
-        email: `email${1}@emai.com`,
-        lastname: `lastname${i}`,
-        firstname: `firstname${i}`,
-      })
+      .values(generateMock(NewUser))
       .returning()
       .execute();
     createdUsers.push(a[0]);
@@ -61,9 +61,7 @@ const generateSomeData = async () => {
     const a = await db
       .insert(PostsTable)
       .values({
-        postName: `postName${i}`,
-        postTitle: `postTitle${i}`,
-        postContent: `postContent${i}`,
+        ...generateMock(NewPost),
         createdBy: createdUsers[i].id,
       })
       .returning()
@@ -77,8 +75,8 @@ const generateSomeData = async () => {
     const a = await db
       .insert(CommentsTable)
       .values({
+        ...generateMock(NewComment),
         createdBy: createdUsers[i].id,
-        comment: `comment${i}`,
       })
       .returning()
       .execute();
@@ -91,7 +89,8 @@ const generateSomeData = async () => {
     await db
       .update(CommentsTable)
       .set({
-        comment: `updated comment${i}`,
+        ...generateMock(NewComment),
+        createdBy: createdUsers[i].id,
       })
       .where(eq(CommentsTable.id, createdComments[i].id))
       .execute();
@@ -101,9 +100,8 @@ const generateSomeData = async () => {
     await db
       .update(PostsTable)
       .set({
-        postName: `updated  postName${i}`,
-        postTitle: `updated  postTitle${i}`,
-        postContent: `updated  postContent${i}`,
+        ...generateMock(NewPost),
+        createdBy: createdUsers[i].id,
       })
       .where(eq(PostsTable.id, createdPosts[i].id))
       .execute();
@@ -118,9 +116,15 @@ async function readFromAuditTable() {
     limit: 5,
   });
 
-  const records = z.array(RecordVersion).parse(auditRecords);
-  console.log("readFromAuditTable found records", records.length);
-  for (const record of records) {
+  console.log("readFromAuditTable auditRecords", auditRecords);
+
+  const records = z.array(RecordVersion).safeParse(auditRecords);
+    if (!records.success) {
+      console.error("readFromAuditTable records", records.error);
+        throw new Error("Failed to parse records");
+    }
+  console.log("readFromAuditTable found records", records.data.length)
+  for (const record of records.data) {
     console.log(`readFromAuditTable ${record.tableName} record`, record.id);
   }
 }
@@ -182,10 +186,15 @@ export const queryAuditRecordOverTime = async (props: {
       eq(record.recordId, recordID) || eq(record.oldRecordId, recordID),
   });
 
-  const records = z.array(RecordVersion).parse(results);
-  console.log("queryAuditRecordOverTime found records", records.length);
+  console.log("queryAuditRecordOverTime results", results);
 
-  for (const record of records) {
+  const records = z.array(RecordVersion).safeParse(results);
+  if (!records.success) {
+    throw new Error("Failed to parse records");
+  }
+  console.log("queryAuditRecordOverTime found records", records.data.length)
+
+  for (const record of records.data) {
     console.log(
       `queryAuditRecordOverTime ${record.tableName} record`,
       record.id,

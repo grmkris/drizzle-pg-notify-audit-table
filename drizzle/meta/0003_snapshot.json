@@ -1,6 +1,6 @@
 {
-  "id": "9083b2e1-5d81-48b3-bd19-72acb439a20b",
-  "prevId": "606d59c6-a0b2-4a80-85ad-c12b5ca5815d",
+  "id": "478fd7bc-03ba-47dd-a2b5-3c557b24c154",
+  "prevId": "9083b2e1-5d81-48b3-bd19-72acb439a20b",
   "version": "5",
   "dialect": "pg",
   "tables": {
@@ -104,6 +104,12 @@
         },
         "as2": {
           "name": "as2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "as3": {
+          "name": "as3",
           "type": "text",
           "primaryKey": false,
           "notNull": true

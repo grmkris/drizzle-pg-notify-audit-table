@@ -3,30 +3,32 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
+    "start": "bun run src/index.ts",
     "format": "bunx @biomejs/biome format --write ./src",
     "lint": "bunx @biomejs/biome lint ./src",
     "check": "bunx @biomejs/biome check --apply ./src",
     "ci": "bunx @biomejs/biome ci ./src",
     "db:generate": "drizzle-kit generate:pg",
-    "start": "bun run src/index.ts",
     "db:docker:up": "docker-compose -f postgres/postgres.yml up -d",
     "db:docker:stop": "docker-compose -f postgres/postgres.yml stop",
-    "db:docker:remove": "docker-compose -f postgres/postgres.yml rm -f",
+    "db:docker:remove": "docker-compose -f postgres/postgres.yml rm -f && rm -rf postgres/data",
     "db:docker:logs": "docker-compose -f postgres/postgres.yml logs -t -f"
   },
   "devDependencies": {
     "bun-types": "latest",
     "drizzle-kit": "^0.20.10",
-    "@biomejs/biome": "^1.5.1"
+    "@biomejs/biome": "^1.5.1",
+    "@anatine/zod-mock": "^3.13.3",
+    "@faker-js/faker": "^8.3.1",
+    "@types/lodash": "^4.14.202"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@anatine/zod-mock": "^3.13.3",
-    "@faker-js/faker": "^8.3.1",
     "drizzle-orm": "^0.29.3",
     "drizzle-zod": "^0.5.1",
+    "lodash": "^4.17.21",
     "postgres": "^3.4.3",
     "zod": "^3.22.4"
   }

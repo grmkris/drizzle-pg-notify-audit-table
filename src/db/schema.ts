@@ -9,6 +9,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { z } from "zod";
+import { camelCase, mapKeys } from "lodash";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const UsersTable = pgTable("users", {
@@ -22,7 +23,10 @@ export const UsersTable = pgTable("users", {
 export const User = createSelectSchema(UsersTable, {
   createdAt: z.coerce.date(),
 });
-export const NewUser = createInsertSchema(UsersTable);
+export const NewUser = createInsertSchema(UsersTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type User = z.infer<typeof User>;
 export type NewUser = z.infer<typeof NewUser>;
 
@@ -41,14 +45,17 @@ export const PostsTable = pgTable("posts", {
 export const Post = createSelectSchema(PostsTable, {
   createdAt: z.coerce.date(),
 });
-export const NewPost = createInsertSchema(PostsTable);
+export const NewPost = createInsertSchema(PostsTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type Post = z.infer<typeof Post>;
 export type NewPost = z.infer<typeof NewPost>;
 
 export const CommentsTable = pgTable("comments", {
   id: uuid("id").primaryKey().defaultRandom(),
   comment: text("comment").notNull(),
-  createdBy: text("created_by")
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => UsersTable.id)
     .notNull(),
@@ -58,7 +65,10 @@ export const CommentsTable = pgTable("comments", {
 export const Comment = createSelectSchema(CommentsTable, {
   createdAt: z.coerce.date(),
 });
-export const NewComment = createInsertSchema(CommentsTable);
+export const NewComment = createInsertSchema(CommentsTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type Comment = z.infer<typeof Comment>;
 export type NewComment = z.infer<typeof NewComment>;
 
@@ -117,8 +127,11 @@ export const RecordVersion = createSelectSchema(RecordVersionTable, {
   ts: z.coerce.date(),
   op: OP,
   tableName: AUDITED_TABLE,
-  record: z.union([User, Post, Comment]).optional(),
-  oldRecord: z.union([User, Post, Comment]).optional(),
+  record: z.preprocess((object) => mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key)),
+    z.union([User, Post, Comment])),
+  oldRecord: z.preprocess((object) => mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key)),
+    z.union([User, Post, Comment])).optional(),
+
 });
 
 export type RecordVersion = z.infer<typeof RecordVersion>;
