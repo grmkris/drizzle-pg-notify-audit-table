@@ -12,6 +12,10 @@ import { z } from "zod";
 import { camelCase, mapKeys } from "lodash";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
+// Define the camelCaseKeys function
+export const camelCaseKeys = (object: unknown) =>
+  mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key));
+
 export const UsersTable = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   firstname: text("firstname").notNull(),
@@ -127,11 +131,10 @@ export const RecordVersion = createSelectSchema(RecordVersionTable, {
   ts: z.coerce.date(),
   op: OP,
   tableName: AUDITED_TABLE,
-  record: z.preprocess((object) => mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key)),
-    z.union([User, Post, Comment])),
-  oldRecord: z.preprocess((object) => mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key)),
-    z.union([User, Post, Comment])).optional(),
-
+  record: z.preprocess(camelCaseKeys, z.union([User, Post, Comment])),
+  oldRecord: z
+    .preprocess(camelCaseKeys, z.union([User, Post, Comment]))
+    .optional(),
 });
 
 export type RecordVersion = z.infer<typeof RecordVersion>;

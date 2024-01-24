@@ -1,4 +1,4 @@
-import { db, migrationClient } from "./db/db.ts";
+import { db, getListener, migrationClient } from "./db/db.ts";
 import {
   UsersTable,
   PostsTable,
@@ -10,7 +10,7 @@ import {
 } from "./db/schema.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { generateMock } from "@anatine/zod-mock";
 
@@ -31,6 +31,47 @@ migrate(drizzle(migrationClient), {
   migrationsFolder: "./drizzle",
 }).then(async () => {
   console.log("Migration complete");
+  console.log("Start Listening for new posts");
+  const listeners = await Promise.all([
+    new Promise<void>((resolve) => {
+      getListener({
+        channel: "new_posts",
+        onNotify: (payload) => {
+          // autocomplete works 😍
+          console.log("listener received new post", payload.postName);
+        },
+        onListen: async () => {
+          resolve();
+        },
+      });
+    }),
+    new Promise<void>((resolve) => {
+      getListener({
+        channel: "new_comments",
+        onNotify: (payload) => {
+          // autocomplete works 😍
+          console.log("listener received new comment", payload.comment);
+        },
+        onListen: async () => {
+          resolve();
+        },
+      });
+    }),
+
+    new Promise<void>((resolve) => {
+      getListener({
+        channel: "audit_changes",
+        onNotify: (payload) => {
+          // autocomplete works 😍
+          console.log("listener received audit change", payload);
+        },
+        onListen: async () => {
+          resolve();
+        },
+      });
+    }),
+  ]);
+
   console.log("Generating some data");
   await generateSomeData();
   console.log("Generated some data");
@@ -116,14 +157,14 @@ async function readFromAuditTable() {
     limit: 5,
   });
 
-  console.log("readFromAuditTable auditRecords", auditRecords);
+  console.log("readFromAuditTable auditRecords length", auditRecords.length);
 
   const records = z.array(RecordVersion).safeParse(auditRecords);
-    if (!records.success) {
-      console.error("readFromAuditTable records", records.error);
-        throw new Error("Failed to parse records");
-    }
-  console.log("readFromAuditTable found records", records.data.length)
+  if (!records.success) {
+    console.error("readFromAuditTable records", records.error);
+    throw new Error("Failed to parse records");
+  }
+  console.log("readFromAuditTable found records", records.data.length);
   for (const record of records.data) {
     console.log(`readFromAuditTable ${record.tableName} record`, record.id);
   }
@@ -192,7 +233,7 @@ export const queryAuditRecordOverTime = async (props: {
   if (!records.success) {
     throw new Error("Failed to parse records");
   }
-  console.log("queryAuditRecordOverTime found records", records.data.length)
+  console.log("queryAuditRecordOverTime found records", records.data.length);
 
   for (const record of records.data) {
     console.log(
