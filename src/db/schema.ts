@@ -16,6 +16,7 @@ import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 export const camelCaseKeys = (object: unknown) =>
   mapKeys(object as Record<string, unknown>, (_, key) => camelCase(key));
 
+/** Users Table */
 export const UsersTable = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   firstname: text("firstname").notNull(),
@@ -34,6 +35,7 @@ export const NewUser = createInsertSchema(UsersTable).omit({
 export type User = z.infer<typeof User>;
 export type NewUser = z.infer<typeof NewUser>;
 
+/** Posts Table */
 export const PostsTable = pgTable("posts", {
   id: uuid("id").primaryKey().defaultRandom(),
   postName: text("post_name").notNull(),
@@ -61,6 +63,7 @@ export const NewPost = createInsertSchema(PostsTable).omit({
 export type Post = z.infer<typeof Post>;
 export type NewPost = z.infer<typeof NewPost>;
 
+/** Comments Table */
 export const CommentsTable = pgTable("comments", {
   id: uuid("id").primaryKey().defaultRandom(),
   comment: text("comment").notNull(),
@@ -92,33 +95,7 @@ export const NewComment = createInsertSchema(CommentsTable).omit({
 export type Comment = z.infer<typeof Comment>;
 export type NewComment = z.infer<typeof NewComment>;
 
-/** create table audit.record_version(
- id             bigserial primary key,
- -- auditing metadata
- record_id      uuid, -- identifies a new record by it's table + primary key
- old_record_id  uuid, -- ^
- op             varchar(8) not null, -- INSERT/UPDATE/DELETE/TRUNCATE
- ts             timestamptz not null default now(),
- -- table identifiers
- table_oid      oid not null,  -- pg internal id for a table
- table_schema   name not null, -- audited table's schema name e.g. 'public'
- table_name     name not null, -- audited table's table name e.g. 'account'
- -- record data
- record         jsonb, -- contents of the new record
- old_record     jsonb  -- previous record contents (for UPDATE/DELETE)
- );
-
- -- index ts for time range filtering
- create index record_version_ts
- on audit.record_version
- using brin(ts);
-
-
- -- index table_oid for table filtering
- create index record_version_table_oid
- on audit.record_version
- using btree(table_oid);
- */
+/** Record Version Table */
 export const OPERATIONS = ["INSERT", "UPDATE", "DELETE", "TRUNCATE"] as const;
 export const OP = z.enum(["INSERT", "UPDATE", "DELETE", "TRUNCATE"]);
 export type OP = z.infer<typeof OP>;

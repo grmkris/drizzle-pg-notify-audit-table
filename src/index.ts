@@ -1,4 +1,4 @@
-import { db, getDBListener, migrationClient } from "./db/db.ts";
+import { db, migrationClient } from "./db/db.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { Hono } from "hono";
@@ -10,6 +10,7 @@ import {
   queryAuditRecordOverTime,
   readFromAuditTable, updateRandomComment, updateRandomPost,
 } from "./seed-data.ts";
+import {getDBListener} from "./db/db-listener.ts";
 /**
  * Record ID you want to use for historical data
  */
