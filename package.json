@@ -3,6 +3,7 @@
   "module": "src/index.ts",
   "type": "module",
   "scripts": {
+    "dev": "bun run --hot src/index.ts",
     "start": "bun run src/index.ts",
     "format": "bunx @biomejs/biome format --write ./src",
     "lint": "bunx @biomejs/biome lint ./src",
@@ -12,7 +13,8 @@
     "db:docker:up": "docker-compose -f postgres/postgres.yml up -d",
     "db:docker:stop": "docker-compose -f postgres/postgres.yml stop",
     "db:docker:remove": "docker-compose -f postgres/postgres.yml rm -f && rm -rf postgres/data",
-    "db:docker:logs": "docker-compose -f postgres/postgres.yml logs -t -f"
+    "db:docker:logs": "docker-compose -f postgres/postgres.yml logs -t -f",
+    "db:studio": "bunx drizzle-kit studio --port 5555"
   },
   "devDependencies": {
     "bun-types": "latest",
@@ -28,7 +30,9 @@
   "dependencies": {
     "drizzle-orm": "^0.29.3",
     "drizzle-zod": "^0.5.1",
+    "hono": "^3.12.6",
     "lodash": "^4.17.21",
+    "pg": "^8.11.3",
     "postgres": "^3.4.3",
     "zod": "^3.22.4"
   }

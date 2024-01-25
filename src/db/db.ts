@@ -16,7 +16,6 @@ const postgresClient = postgres(
 );
 export const db = drizzle(postgresClient, { schema });
 
-// Map channel names to corresponding data types
 export const ChannelMap = {
   new_posts: z.preprocess(camelCaseKeys, Post),
   new_comments: z.preprocess(camelCaseKeys, Comment),
@@ -25,15 +24,13 @@ export const ChannelMap = {
 
 export type ChannelMap = typeof ChannelMap;
 
-// Define the listener configuration with a generic channel type
 type ListenerConfig<Channel extends keyof ChannelMap> = {
   channel: Channel;
   onNotify: (payload: z.infer<ChannelMap[Channel]>) => void;
   onListen: () => void;
 };
 
-// Refactor the getListener function to use the ListenerConfig
-export const getListener = <Channel extends keyof ChannelMap>(
+export const getDBListener = <Channel extends keyof ChannelMap>(
   props: ListenerConfig<Channel>,
 ) => {
   return postgresClient.listen(

@@ -43,15 +43,20 @@ export const PostsTable = pgTable("posts", {
     .notNull()
     .references(() => UsersTable.id)
     .notNull(),
+  updatedBy: uuid("updated_by").references(() => UsersTable.id),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export const Post = createSelectSchema(PostsTable, {
   createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date().optional(),
 });
 export const NewPost = createInsertSchema(PostsTable).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+  updatedBy: true,
 });
 export type Post = z.infer<typeof Post>;
 export type NewPost = z.infer<typeof NewPost>;
@@ -59,19 +64,30 @@ export type NewPost = z.infer<typeof NewPost>;
 export const CommentsTable = pgTable("comments", {
   id: uuid("id").primaryKey().defaultRandom(),
   comment: text("comment").notNull(),
+  postId: uuid("post_id")
+    .notNull()
+    .references(() => PostsTable.id)
+    .notNull(),
   createdBy: uuid("created_by")
     .notNull()
     .references(() => UsersTable.id)
     .notNull(),
+  updatedBy: uuid("updated_by").references(() => UsersTable.id),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export const Comment = createSelectSchema(CommentsTable, {
   createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date().optional(),
 });
 export const NewComment = createInsertSchema(CommentsTable).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+  updatedBy: true,
+  createdBy: true,
+  postId: true,
 });
 export type Comment = z.infer<typeof Comment>;
 export type NewComment = z.infer<typeof NewComment>;

@@ -16,7 +16,10 @@
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "types": [
-      "bun-types" // add Bun global
-    ]
+      "bun-types",
+      "typed-htmx"
+    ],
+    "esModuleInterop": true,
+    "jsxImportSource": "hono/jsx"
   }
 }

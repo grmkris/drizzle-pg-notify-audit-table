@@ -1,78 +1,68 @@
-import { db, getListener, migrationClient } from "./db/db.ts";
-import {
-  UsersTable,
-  PostsTable,
-  RecordVersion,
-  CommentsTable,
-  NewUser,
-  NewPost,
-  NewComment,
-} from "./db/schema.ts";
+import { db, getDBListener, migrationClient } from "./db/db.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
-import { and, eq, gte, sql } from "drizzle-orm";
-import { z } from "zod";
-import { generateMock } from "@anatine/zod-mock";
-
-/**
- * We need to map the table name to the table OID in postgres, it is different for each database
- * We should somehow automate this to not have it hardcoded in real app
- */
-export const TABLE_OID_MAP = {
-  invoices: 16418,
-  products: 16426,
-} as const;
+import { Hono } from "hono";
+import { stream, streamText, streamSSE } from "hono/streaming";
+import {
+  generateSomeData,
+  queryAuditRecordOverTime,
+  readFromAuditTable,
+} from "./seed-data.ts";
 /**
  * Record ID you want to use for historical data
  */
 export const RECORD_ID = "100" as const;
 
-migrate(drizzle(migrationClient), {
-  migrationsFolder: "./drizzle",
-}).then(async () => {
-  console.log("Migration complete");
-  console.log("Start Listening for new posts");
-  const listeners = await Promise.all([
+const setupListeners = () =>
+  Promise.all([
     new Promise<void>((resolve) => {
-      getListener({
+      getDBListener({
         channel: "new_posts",
         onNotify: (payload) => {
           // autocomplete works 😍
           console.log("listener received new post", payload.postName);
         },
         onListen: async () => {
+          console.log("Listening for new posts");
           resolve();
         },
       });
     }),
     new Promise<void>((resolve) => {
-      getListener({
+      getDBListener({
         channel: "new_comments",
         onNotify: (payload) => {
           // autocomplete works 😍
           console.log("listener received new comment", payload.comment);
         },
         onListen: async () => {
+          console.log("Listening for new comments");
           resolve();
         },
       });
     }),
 
     new Promise<void>((resolve) => {
-      getListener({
+      getDBListener({
         channel: "audit_changes",
         onNotify: (payload) => {
           // autocomplete works 😍
-          console.log("listener received audit change", payload);
         },
         onListen: async () => {
+          console.log("Listening for audit changes");
           resolve();
         },
       });
     }),
   ]);
 
+migrate(drizzle(migrationClient), {
+  migrationsFolder: "./drizzle",
+}).then(async () => {
+  console.log("Migration complete");
   console.log("Generating some data");
+  // setup listeners
+  // await setupListeners();
   await generateSomeData();
   console.log("Generated some data");
   console.log("Read from audit table");
@@ -85,160 +75,51 @@ migrate(drizzle(migrationClient), {
   });
 });
 
-const generateSomeData = async () => {
-  // create 10 users
-  const createdUsers = [];
-  const createdPosts = [];
-  const createdComments = [];
-  for (let i = 0; i < 10; i++) {
-    const a = await db
-      .insert(UsersTable)
-      .values(generateMock(NewUser))
-      .returning()
-      .execute();
-    createdUsers.push(a[0]);
-  }
-  for (let i = 0; i < 10; i++) {
-    const a = await db
-      .insert(PostsTable)
-      .values({
-        ...generateMock(NewPost),
-        createdBy: createdUsers[i].id,
-      })
-      .returning()
-      .execute();
+const app = new Hono();
 
-    createdPosts.push(a[0]);
-  }
+app.get("/", async (c) => {
+  const posts = await db.query.PostsTable.findMany();
+  return c.json({ posts });
+});
 
-  // create 10 comments
-  for (let i = 0; i < 10; i++) {
-    const a = await db
-      .insert(CommentsTable)
-      .values({
-        ...generateMock(NewComment),
-        createdBy: createdUsers[i].id,
-      })
-      .returning()
-      .execute();
+app.get("/generate", async (c) => {
+  await generateSomeData();
+  return c.json({ success: true });
+});
 
-    createdComments.push(a[0]);
-  }
+app.get("/stream", (c) => {
+  return streamText(c, async (stream) => {
+    // Write a Uint8Array.
+    await stream.writeln("Hello world!, listening for new db events");
+    // Pipe a readable stream.
+    const listener = await getDBListener({
+      channel: "new_posts",
+      onNotify: (payload) => {
+        // autocomplete works 😍
+        console.log("stream listener received new post", payload.postName);
+        stream.writeln("new post:");
+        stream.writeln(JSON.stringify(payload, null, 2));
+      },
+      onListen: async () => {
+        console.log("Listening for new posts");
+      },
+    });
 
-  // update each comments and post few times
-  for (let i = 0; i < 10; i++) {
-    await db
-      .update(CommentsTable)
-      .set({
-        ...generateMock(NewComment),
-        createdBy: createdUsers[i].id,
-      })
-      .where(eq(CommentsTable.id, createdComments[i].id))
-      .execute();
-  }
+    console.log("stream listener", listener);
+    // Write a text with a new line ('\n').
+    await stream.writeln("Hello");
+    // Wait 100 second.
+    await stream.sleep(100000);
+    // Write a text without a new line.
+    await stream.write("Hono!");
 
-  for (let i = 0; i < 10; i++) {
-    await db
-      .update(PostsTable)
-      .set({
-        ...generateMock(NewPost),
-        createdBy: createdUsers[i].id,
-      })
-      .where(eq(PostsTable.id, createdPosts[i].id))
-      .execute();
-  }
-};
+    console.log("stream listener", listener.state.status);
 
-async function readFromAuditTable() {
-  // read from audit table
-  // limit output to just 5 records to keep the output small
-  const auditRecords = await db.query.RecordVersionTable.findMany({
-    where: (record) => eq(record.tableName, "posts"),
-    limit: 5,
+    // Write a process to be executed when aborted.
+    await stream.onAbort(async () => {
+      console.log("Aborted!");
+    });
   });
+});
 
-  console.log("readFromAuditTable auditRecords length", auditRecords.length);
-
-  const records = z.array(RecordVersion).safeParse(auditRecords);
-  if (!records.success) {
-    console.error("readFromAuditTable records", records.error);
-    throw new Error("Failed to parse records");
-  }
-  console.log("readFromAuditTable found records", records.data.length);
-  for (const record of records.data) {
-    console.log(`readFromAuditTable ${record.tableName} record`, record.id);
-  }
-}
-
-/**
- * Changes to a Table in a Time Range
- */
-const queryAuditTableInTimeRange = async () => {
-  const results = await db.query.RecordVersionTable.findMany({
-    where: (record) => {
-      return and(
-        eq(record.tableName, "posts"),
-        gte(record.ts, new Date("2021-01-01")),
-      );
-    },
-  });
-
-  const records = z.array(RecordVersion).parse(results);
-
-  for (const record of records) {
-    console.log(
-      `queryAuditTableInTimeRange ${record.tableName} record`,
-      record.id,
-    );
-  }
-};
-
-/**
- * Changes to a Record Over Time
- */
-export const queryAuditRecordOverTime = async (props: {
-  tableName: "invoices" | "products";
-  recordId: string;
-}) => {
-  console.log("queryAuditRecordOverTime props", props);
-  /**
-   * We need to calculate the record ID for the record we want to query, we could do this in js, but here we query helper function in the sql table
-   * In production, we would probably want to do this in js
-   */
-  const sqlstmt = sql`SELECT audit.to_record_id(${TABLE_OID_MAP[
-    props.tableName
-  ].toString()}, array['id'], jsonb_build_object('id', '100'))`;
-
-  const record = await db.execute(sqlstmt);
-  const recordID = z.string().parse(record[0].to_record_id);
-
-  console.log("queryAuditRecordOverTime recordID", recordID);
-
-  if (!recordID) throw new Error("No record ID found");
-
-  /**
-   * SELECT *
-   * FROM audit.record_version
-   * WHERE record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f'
-   *    OR old_record_id = '28ac85ec-6987-5265-b209-8f44bf288c8f';
-   */
-  const results = await db.query.RecordVersionTable.findMany({
-    where: (record, { eq }) =>
-      eq(record.recordId, recordID) || eq(record.oldRecordId, recordID),
-  });
-
-  console.log("queryAuditRecordOverTime results", results);
-
-  const records = z.array(RecordVersion).safeParse(results);
-  if (!records.success) {
-    throw new Error("Failed to parse records");
-  }
-  console.log("queryAuditRecordOverTime found records", records.data.length);
-
-  for (const record of records.data) {
-    console.log(
-      `queryAuditRecordOverTime ${record.tableName} record`,
-      record.id,
-    );
-  }
-};
+export default app;
