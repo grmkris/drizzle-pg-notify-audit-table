@@ -1,4 +1,4 @@
-# pg-notify-audit-table
+# drizzle-pg-notify-audit-table
 
 ## Problem
 
