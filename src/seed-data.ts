@@ -180,3 +180,65 @@ export const queryAuditRecordOverTime = async (props: {
     );
   }
 };
+
+
+export const createNewPost = async () => {
+  const randomUser = await  db.query.UsersTable.findMany({
+    limit: 1,
+  });
+  if (!randomUser[0]?.id) throw new Error("No random user found");
+  return await db.insert(PostsTable).values({
+    ...generateMock(NewPost),
+    createdBy: randomUser[0].id,
+  }).returning().execute();
+}
+
+export const createNewComment = async () => {
+  const randomPost = await db.query.PostsTable.findMany({
+    limit: 1,
+  });
+  const randomUser = await  db.query.UsersTable.findMany({
+    limit: 1,
+  });
+
+  if (!randomPost[0]?.id) throw new Error("No random post found");
+  if (!randomUser[0]?.id) throw new Error("No random user found");
+    return db.insert(CommentsTable).values({
+      ...generateMock(NewComment),
+      postId: randomPost[0].id,
+        createdBy: randomUser[0].id,
+    }).returning().execute();
+}
+
+
+export const updateRandomPost = async () => {
+    const randomPost = await db.query.PostsTable.findMany({
+        limit: 1,
+    });
+    const randomUser = await  db.query.UsersTable.findMany({
+        limit: 1,
+    });
+
+    if (!randomPost[0]?.id) throw new Error("No random post found");
+    if (!randomUser[0]?.id) throw new Error("No random user found");
+    return db.update(PostsTable).set({
+        ...generateMock(NewPost),
+        createdBy: randomUser[0].id,
+    }).where(eq(PostsTable.id, randomPost[0].id)).returning().execute();
+}
+
+export const updateRandomComment = async () => {
+    const randomComment = await db.query.CommentsTable.findMany({
+        limit: 1,
+    });
+    const randomUser = await  db.query.UsersTable.findMany({
+        limit: 1,
+    });
+
+    if (!randomComment[0]?.id) throw new Error("No random comment found");
+    if (!randomUser[0]?.id) throw new Error("No random user found");
+    return db.update(CommentsTable).set({
+        ...generateMock(NewComment),
+        createdBy: randomUser[0].id,
+    }).where(eq(CommentsTable.id, randomComment[0].id)).returning().execute();
+}

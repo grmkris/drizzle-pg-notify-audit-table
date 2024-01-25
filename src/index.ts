@@ -2,11 +2,13 @@ import { db, getDBListener, migrationClient } from "./db/db.ts";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { Hono } from "hono";
-import { stream, streamText, streamSSE } from "hono/streaming";
+import { streamText } from "hono/streaming";
 import {
+  createNewComment,
+  createNewPost,
   generateSomeData,
   queryAuditRecordOverTime,
-  readFromAuditTable,
+  readFromAuditTable, updateRandomComment, updateRandomPost,
 } from "./seed-data.ts";
 /**
  * Record ID you want to use for historical data
@@ -63,7 +65,7 @@ migrate(drizzle(migrationClient), {
   console.log("Generating some data");
   // setup listeners
   // await setupListeners();
-  await generateSomeData();
+  // await generateSomeData();
   console.log("Generated some data");
   console.log("Read from audit table");
   await readFromAuditTable();
@@ -120,5 +122,22 @@ app.get("/stream", (c) => {
     });
   });
 });
+
+app.get("/create-post", async (c) => {
+    return c.json(await createNewPost())
+})
+
+app.get("/create-comment", async (c) => {
+    return c.json(await createNewComment())
+})
+
+app.get("/update-post", async (c) => {
+    return c.json(await updateRandomPost())
+})
+
+app.get("/update-comment", async (c) => {
+    return c.json(await updateRandomComment())
+})
+
 
 export default app;
