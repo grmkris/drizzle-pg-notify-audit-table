@@ -93,11 +93,11 @@ app.get("/stream", (c) => {
     await stream.writeln("Hello world!, listening for new db events");
     // Pipe a readable stream.
     const listener = await getDBListener({
-      channel: "new_posts",
+      channel: "audit_changes",
       onNotify: (payload) => {
         // autocomplete works 😍
-        console.log("stream listener received new post", payload.postName);
-        stream.writeln("new post:");
+        console.log("stream listener received new update in audit table", payload.tableName);
+        stream.writeln(`stream listener received new update in audit table: ${payload.tableName}`);
         stream.writeln(JSON.stringify(payload, null, 2));
       },
       onListen: async () => {
@@ -107,11 +107,10 @@ app.get("/stream", (c) => {
 
     console.log("stream listener", listener);
     // Write a text with a new line ('\n').
-    await stream.writeln("Hello");
     // Wait 100 second.
     await stream.sleep(100000);
     // Write a text without a new line.
-    await stream.write("Hono!");
+    await stream.write("Stream ended!");
 
     console.log("stream listener", listener.state.status);
 
